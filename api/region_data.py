@@ -9,15 +9,19 @@ from collections import Counter
 class handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
-        # --- Configuración de Google Sheets ---
-        SCOPES = [
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive.file"
-        ]
-        SHEET_ID = "1c0CuXVEXdFVCbN6nZFYLb4c1MTU-To8jLnGwzZg_RhY"
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
 
         try:
-            # Cargar credenciales desde variable de entorno
+            # --- Configuración de Google Sheets ---
+            SCOPES = [
+                "https://www.googleapis.com/auth/spreadsheets",
+                "https://www.googleapis.com/auth/drive.file"
+            ]
+            SHEET_ID = "1c0CuXVEXdFVCbN6nZFYLb4c1MTU-To8jLnGwzZg_RhY"
+
             creds_json_str = os.getenv("GSPREAD_CREDENTIALS")
             if not creds_json_str:
                 raise ValueError("La variable de entorno GSPREAD_CREDENTIALS no está configurada.")
@@ -28,13 +32,10 @@ class handler(BaseHTTPRequestHandler):
 
             # --- Lógica de la función ---
             spreadsheet = client.open_by_key(SHEET_ID)
-            worksheet = spreadsheet.get_worksheet(0) # Hoja 1
+            worksheet = spreadsheet.get_worksheet(0)
             all_values = worksheet.get_all_values()
-
-            start_row_index = 11075 # Fila 11076
-            region_column_index = 19 # Columna T
-
-            response_data = {}
+            start_row_index = 11075
+            region_column_index = 19
 
             if len(all_values) <= start_row_index:
                 response_data = {"info": "No se encontraron datos de regiones en el rango especificado (Fila 11076+, Columna T)."}
@@ -46,27 +47,16 @@ class handler(BaseHTTPRequestHandler):
                         if cell_value:
                             individual_regions = [name.strip() for name in cell_value.split(',')]
                             region_counts.update(individual_regions)
-                
                 region_counts.pop("", None)
-
                 if not region_counts:
                     response_data = {"info": "No se encontraron datos de regiones en el rango especificado (Fila 11076+, Columna T)."}
                 else:
                     response_data = dict(region_counts)
-
-            # --- Enviar respuesta ---
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            self.wfile.write(json.dumps(response_data).encode('utf-8'))
+            
+            response_body = json.dumps(response_data)
 
         except Exception as e:
-            self.send_response(500)
-            self.send_header('Content-type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            error_response = {"error": f"Ocurrió un error en el servidor: {e}"}
-            self.wfile.write(json.dumps(error_response).encode('utf-8'))
-            
+            response_body = json.dumps({"error": f"Exception in API (region_data): {type(e).__name__} - {e}"})
+
+        self.wfile.write(response_body.encode('utf-8'))
         return

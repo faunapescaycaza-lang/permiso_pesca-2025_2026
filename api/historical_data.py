@@ -9,15 +9,19 @@ from datetime import datetime, timedelta
 class handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
-        # --- Configuración de Google Sheets ---
-        SCOPES = [
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive.file"
-        ]
-        SHEET_ID = "1c0CuXVEXdFVCbN6nZFYLb4c1MTU-To8jLnGwzZg_RhY"
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
 
         try:
-            # Cargar credenciales desde variable de entorno
+            # --- Configuración de Google Sheets ---
+            SCOPES = [
+                "https://www.googleapis.com/auth/spreadsheets",
+                "https://www.googleapis.com/auth/drive.file"
+            ]
+            SHEET_ID = "1c0CuXVEXdFVCbN6nZFYLb4c1MTU-To8jLnGwzZg_RhY"
+
             creds_json_str = os.getenv("GSPREAD_CREDENTIALS")
             if not creds_json_str:
                 raise ValueError("La variable de entorno GSPREAD_CREDENTIALS no está configurada.")
@@ -52,27 +56,17 @@ class handler(BaseHTTPRequestHandler):
                 hoja1 = spreadsheet.get_worksheet(0)
                 all_values_hoja1 = hoja1.get_all_values()
                 yesterday_count = 0
-                date_column_index = 3 # Columna D
+                date_column_index = 3
                 for row in all_values_hoja1[1:]:
                     if len(row) > date_column_index and row[date_column_index].startswith(yesterday_str):
                         yesterday_count += 1
                 hoja2.append_row([yesterday_str, yesterday_count])
 
             final_data = hoja2.get_all_records()
-            
-            # --- Enviar respuesta ---
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            self.wfile.write(json.dumps(final_data).encode('utf-8'))
+            response_body = json.dumps(final_data)
 
         except Exception as e:
-            self.send_response(500)
-            self.send_header('Content-type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            error_response = {"error": f"Ocurrió un error en el servidor: {e}"}
-            self.wfile.write(json.dumps(error_response).encode('utf-8'))
-            
+            response_body = json.dumps({"error": f"Exception in API (historical_data): {type(e).__name__} - {e}"})
+
+        self.wfile.write(response_body.encode('utf-8'))
         return
