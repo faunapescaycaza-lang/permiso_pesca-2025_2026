@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Permisos de Pesca</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            background-color: #f0f2f5;
+            display: flex;
+            height: 100vh;
+        }
+        .dashboard-container {
+            display: flex;
+            width: 100%;
+        }
+        .main-content {
+            flex-grow: 1;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            overflow-y: auto;
+        }
+        .stats-container {
+            display: flex;
+            gap: 2rem;
+        }
+        .counter-box {
+            background-color: #ffffff;
+            padding: 1.5rem 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        .counter-title {
+            font-size: 1rem;
+            color: #606770;
+            margin-bottom: 0.25rem;
+        }
+        .counter-display {
+            font-size: 3rem;
+            font-weight: bold;
+        }
+        #total-permits-display {
+            color: #1877f2;
+        }
+        #total-revenue-display {
+            color: #fbbc05; /* Color para recaudación */
+        }
+        .chart-box {
+            background-color: #ffffff;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+        }
+        .chart-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 0.5rem;
+            text-align: center;
+        }
+        .chart-count-display {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #34a853;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        .chart-wrapper {
+            position: relative;
+            height: 200px;
+        }
+        .pie-chart-wrapper {
+            position: relative;
+            height: 300px;
+        }
+        .history-sidebar {
+            width: 250px;
+            flex-shrink: 0;
+            background-color: #ffffff;
+            box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+        .history-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-top: 0;
+            margin-bottom: 1.5rem;
+        }
+        #history-menu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .history-item {
+            background-color: #f0f2f5;
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-weight: 500;
+        }
+        .history-item:hover, .history-item.active {
+            background-color: #e4e6eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <main class="main-content">
+            <div class="stats-container">
+                <div class="counter-box">
+                    <div class="counter-title">Cantidad de permisos vendidos</div>
+                    <div id="total-permits-display" class="counter-display">--</div>
+                </div>
+                <div class="counter-box">
+                    <div class="counter-title">Recaudación Total</div>
+                    <div id="total-revenue-display" class="counter-display">--</div>
+                </div>
+            </div>
+            <div class="chart-box">
+                <div id="main-chart-title" class="chart-title">Permisos vendidos hoy</div>
+                <div id="main-chart-count" class="chart-count-display">--</div>
+                <div class="chart-wrapper">
+                    <canvas id="mainChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-box">
+                <div class="chart-title">Registros por Región</div>
+                <div class="pie-chart-wrapper">
+                    <canvas id="regionPieChart"></canvas>
+                </div>
+            </div>
+        </main>
+        <aside class="history-sidebar">
+            <h2 class="history-title">Historial</h2>
+            <ul id="history-menu"></ul>
+        </aside>
+    </div>
+
+    <script>
+        // --- Elementos del DOM ---
+        const totalPermitsElement = document.getElementById('total-permits-display');
+        const totalRevenueElement = document.getElementById('total-revenue-display');
+        const mainChartTitleElement = document.getElementById('main-chart-title');
+        const mainChartCountElement = document.getElementById('main-chart-count');
+        const mainChartCtx = document.getElementById('mainChart').getContext('2d');
+        const historyMenu = document.getElementById('history-menu');
+        let mainChart, regionPieChart;
+
+        // --- Lógica de Gráficos y Datos ---
+
+        function displayBarChart(dateString, count, title) {
+            mainChartTitleElement.textContent = title;
+            mainChartCountElement.textContent = count;
+            if (mainChart) mainChart.destroy();
+            mainChart = new Chart(mainChartCtx, {
+                type: 'bar',
+                data: { labels: [dateString], datasets: [{ label: title, data: [count], backgroundColor: 'rgba(52, 168, 83, 0.6)' }] },
+                options: { scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }, plugins: { legend: { display: false } }, responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        async function fetchTotalPermits() {
+            try {
+                const res = await fetch('/api/data');
+                const data = await res.json();
+                totalPermitsElement.textContent = data.count;
+            } catch (e) { console.error('Error fetching total permits:', e); }
+        }
+
+        async function fetchTotalRevenue() {
+            try {
+                const res = await fetch('/api/total_revenue');
+                const data = await res.json();
+                const formattedRevenue = data.total_revenue.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
+                totalRevenueElement.textContent = formattedRevenue;
+            } catch (e) { console.error('Error fetching total revenue:', e); }
+        }
+
+        async function fetchAndShowTodayChart() {
+            try {
+                const res = await fetch('/api/today_count');
+                const data = await res.json();
+                const todayString = new Date().toISOString().split('T')[0];
+                displayBarChart(todayString, data.today_count, 'Permisos vendidos hoy');
+            } catch (e) { console.error('Error fetching today count:', e); }
+        }
+
+        async function populateHistoryMenu() {
+            try {
+                const res = await fetch('/api/historical_data');
+                const data = await res.json();
+                historyMenu.innerHTML = '';
+                const todayButton = document.createElement('li');
+                todayButton.className = 'history-item active';
+                todayButton.textContent = 'Ver Hoy';
+                todayButton.onclick = () => {
+                    fetchAndShowTodayChart();
+                    document.querySelectorAll('.history-item').forEach(i => i.classList.remove('active'));
+                    todayButton.classList.add('active');
+                };
+                historyMenu.appendChild(todayButton);
+                data.sort((a, b) => new Date(b.Fecha) - new Date(a.Fecha));
+                data.forEach(item => {
+                    const li = document.createElement('li');
+                    li.className = 'history-item';
+                    li.textContent = item.Fecha;
+                    li.dataset.count = item.Cantidad;
+                    li.onclick = () => {
+                        displayBarChart(item.Fecha, item.Cantidad, `Permisos del ${item.Fecha}`);
+                        document.querySelectorAll('.history-item').forEach(i => i.classList.remove('active'));
+                        li.classList.add('active');
+                    };
+                    historyMenu.appendChild(li);
+                });
+            } catch (e) { console.error('Error populating history menu:', e); }
+        }
+
+        async function fetchAndRenderRegionPieChart() {
+            try {
+                const res = await fetch('/api/region_data');
+                const data = await res.json();
+                const pieChartWrapper = document.querySelector('.pie-chart-wrapper');
+                if (data.info) {
+                    pieChartWrapper.innerHTML = `<p style="text-align: center; color: #606770;">${data.info}</p>`;
+                    return;
+                }
+                const labels = Object.keys(data);
+                const counts = Object.values(data);
+                const total = counts.reduce((a, b) => a + b, 0);
+                pieChartWrapper.innerHTML = '<canvas id="regionPieChart"></canvas>';
+                const regionPieChartCtx = document.getElementById('regionPieChart').getContext('2d');
+                if (regionPieChart) regionPieChart.destroy();
+                regionPieChart = new Chart(regionPieChartCtx, {
+                    type: 'pie',
+                    data: { labels: labels, datasets: [{ data: counts }] },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'top' },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.label || '';
+                                        const value = context.raw || 0;
+                                        const percentage = total > 0 ? ((value / total) * 100).toFixed(2) : 0;
+                                        return `${label}: ${value} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (e) { console.error('Error fetching region data:', e); }
+        }
+
+        // --- Inicialización ---
+        function init() {
+            fetchTotalPermits();
+            fetchTotalRevenue();
+            fetchAndShowTodayChart();
+            populateHistoryMenu();
+            fetchAndRenderRegionPieChart();
+        }
+
+        setInterval(() => {
+            fetchTotalPermits();
+            fetchTotalRevenue();
+            fetchAndShowTodayChart();
+        }, 30000);
+        
+        init();
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+# Ignorar archivos de entorno y dependencias locales
+.env
+node_modules
+.vercel
