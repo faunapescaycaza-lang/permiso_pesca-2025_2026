@@ -1,26 +1,19 @@
 {
   "version": 2,
   "builds": [
-    {
-      "src": "api/**/*.py",
-      "use": "@vercel/python",
-      "config": {
-        "installCommand": "python -m pip install -r requirements.txt"
-      }
-    },
-    {
-      "src": "index.html",
-      "use": "@vercel/static"
-    }
+    { "src": "api/data.py", "use": "@vercel/python", "config": { "installCommand": "python -m pip install -r requirements.txt" } },
+    { "src": "api/historical_data.py", "use": "@vercel/python", "config": { "installCommand": "python -m pip install -r requirements.txt" } },
+    { "src": "api/region_data.py", "use": "@vercel/python", "config": { "installCommand": "python -m pip install -r requirements.txt" } },
+    { "src": "api/today_count.py", "use": "@vercel/python", "config": { "installCommand": "python -m pip install -r requirements.txt" } },
+    { "src": "api/total_revenue.py", "use": "@vercel/python", "config": { "installCommand": "python -m pip install -r requirements.txt" } },
+    { "src": "index.html", "use": "@vercel/static" }
   ],
   "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "api/$1"
-    },
-    {
-      "src": "/",
-      "dest": "index.html"
-    }
+    { "src": "/api/data", "dest": "/api/data.py" },
+    { "src": "/api/historical_data", "dest": "/api/historical_data.py" },
+    { "src": "/api/region_data", "dest": "/api/region_data.py" },
+    { "src": "/api/today_count", "dest": "/api/today_count.py" },
+    { "src": "/api/total_revenue", "dest": "/api/total_revenue.py" },
+    { "src": "/", "dest": "/index.html" }
   ]
 }
